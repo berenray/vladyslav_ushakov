@@ -261,7 +261,61 @@
   @media (max-width: 400px) {
     .name { font-size: 23px; }
   }
+  /* ---------- In-app browser fallback sheet ---------- */
+  .env { opacity: .5; font-size: 11px; }
+
+  .iab {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(15,15,17,0.55);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding: 16px;
+  }
+  .iab__box {
+    width: 100%; max-width: 460px;
+    background: var(--ai-white);
+    border-radius: 22px;
+    padding: 22px 20px 16px;
+    box-shadow: 0 -8px 40px rgba(15,15,17,0.25);
+  }
+  .iab__title {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: 18px; line-height: 1.25; margin-bottom: 8px;
+  }
+  .iab__text { font-size: 14px; line-height: 1.5; color: var(--ai-text-muted); margin-bottom: 16px; }
+  .iab__text b { color: var(--ai-text-dark); }
+  .iab__btn {
+    display: block; width: 100%; text-align: center;
+    padding: 14px 16px; margin-bottom: 10px;
+    border-radius: 14px; border: 1px solid rgba(15,15,17,0.14);
+    background: var(--ai-paper); color: var(--ai-text-dark);
+    font-family: var(--font-body); font-weight: 600; font-size: 15px;
+    text-decoration: none; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .iab__btn--primary { background: var(--ai-gold); border-color: transparent; }
+  .iab__btn:active { opacity: .75; }
+  .iab__url {
+    font-size: 12px; color: var(--ai-text-muted);
+    word-break: break-all; user-select: all; -webkit-user-select: all;
+    padding: 10px 12px; border-radius: 10px; background: var(--ai-paper);
+    margin-bottom: 10px;
+  }
+  .iab__close {
+    display: block; width: 100%; padding: 10px;
+    background: none; border: 0; cursor: pointer;
+    font-family: var(--font-body); font-size: 14px; color: var(--ai-text-muted);
+  }
+
 </style>
+<script>
+/* Визначаємо середовище до рендера: у вебв'ю TikTok/Instagram/Facebook
+   посилання не можна відкривати в новій вкладці — там вони просто гинуть. */
+window.__ANDROID = /Android/i.test(navigator.userAgent || '');
+window.__IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+window.__IAB = /BytedanceWebview|musical_ly|trill|TikTok|Instagram|FBAN|FBAV|FB_IAB|Snapchat|Line\/|Twitter/i
+               .test(navigator.userAgent || '');
+</script>
 </head>
 <body>
   <main class="page">
@@ -285,6 +339,7 @@
 
     <footer class="footer">
       © <span id="year"></span> <b><i>AI</i> LAB</b>
+      <span class="env" id="envTag"></span>
     </footer>
   </main>
 
@@ -367,7 +422,7 @@ CONFIG.socials.forEach(s => {
   a.className = 'social';
   a.href = s.url;
   a.setAttribute('aria-label', s.name);
-  if (/^https?:/i.test(s.url)) { a.target = '_blank'; a.rel = 'noopener'; }
+  if (/^https?:/i.test(s.url) && !window.__IAB) { a.target = '_blank'; a.rel = 'noopener'; }
   a.innerHTML = icon(s.name);
   socialsEl.appendChild(a);
 });
@@ -378,7 +433,7 @@ CONFIG.links.forEach(l => {
   const a = document.createElement('a');
   a.className = 'link' + (l.type === 'primary' ? ' link--primary' : '');
   a.href = l.url;
-  if (/^https?:/i.test(l.url)) { a.target = '_blank'; a.rel = 'noopener'; }
+  if (/^https?:/i.test(l.url) && !window.__IAB) { a.target = '_blank'; a.rel = 'noopener'; }
 
   if (l.badge) {
     const b = document.createElement('span');
@@ -429,26 +484,172 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
   }
 });
 </script>
-<!-- In-app browser fix: у вебв'ю TikTok/Instagram/Facebook переходи в новій вкладці
-     блокуються — відкриваємо їх у тому ж вікні. У звичайних браузерах нічого не змінює. -->
+<!-- =========================================================================
+     In-app browser handoff (TikTok / Instagram / Facebook / Snapchat)
+
+     Ці вебв'ю блокують не домен призначення, а саму навігацію зі сторінки:
+     перевірено, що заглушка "відкрий у браузері" зʼявляється навіть на
+     перехід на свій же домен. Тому проміжного переходу тут немає взагалі:
+
+     1) Telegram-кнопки віддаємо операційній системі прямо з цієї сторінки
+        (tg:// на iOS, intent:// на Android) — навігації, яку можна заблокувати,
+        не відбувається;
+     2) решту посилань пробуємо відкрити в тому ж вікні;
+     3) якщо за 1.4 с застосунок не відкрився — показуємо власний екран
+        із копіюванням посилання та інструкцією "⋯ → Відкрити в браузері".
+
+     У звичайних браузерах модуль не робить нічого.
+     ========================================================================= -->
 <script>
 (function () {
-  var ua = navigator.userAgent || '';
-  if (!/BytedanceWebview|musical_ly|trill|TikTok|Instagram|FBAN|FBAV|FB_IAB|Snapchat/i.test(ua)) return;
+  var BUILD = 'v3';
+  var IAB = window.__IAB, isAndroid = window.__ANDROID, isIOS = window.__IOS;
+  var BOT = 'vladushakovai_bot';
+
+  // Видимий маркер: єдиний спосіб переконатися, що скрипт узагалі виконався
+  // всередині вебвʼю — консолі там немає.
+  var tag = document.getElementById('envTag');
+  if (tag) tag.textContent = '· ' + BUILD + (IAB ? ' · in-app' : '');
+
+  if (!IAB) return;
+
+  /* ---------- Telegram-хендофф ---------- */
+
+  // Розпізнаємо і /tg?r=<payload>, і пряме t.me/<bot>?start=<payload>.
+  function tgTarget(href) {
+    var u;
+    try { u = new URL(href, location.href); } catch (e) { return null; }
+
+    var bot, payload;
+    if (/(^|\.)t\.me$/i.test(u.hostname)) {
+      bot = (u.pathname.replace(/^\//, '').split('/')[0] || '');
+      payload = u.searchParams.get('start') || '';
+    } else if (/^\/tg\/?$/.test(u.pathname)) {
+      bot = u.searchParams.get('bot') || BOT;
+      payload = u.searchParams.get('r') || u.searchParams.get('start') || u.searchParams.get('s') || '';
+    } else {
+      return null;
+    }
+    if (!bot) return null;
+
+    bot = bot.replace(/^@/, '');
+    var https = 'https://t.me/' + encodeURIComponent(bot) +
+                (payload ? '?start=' + encodeURIComponent(payload) : '');
+    var app = isAndroid
+      ? 'intent://resolve?domain=' + encodeURIComponent(bot) +
+        (payload ? '&start=' + encodeURIComponent(payload) : '') +
+        '#Intent;scheme=tg;S.browser_fallback_url=' + encodeURIComponent(https) + ';end'
+      : 'tg://resolve?domain=' + encodeURIComponent(bot) +
+        (payload ? '&start=' + encodeURIComponent(payload) : '');
+
+    return { https: https, app: app };
+  }
+
+  /* ---------- Фолбек-екран ---------- */
+
+  var sheet = null, timer = null;
+
+  function disarm() {
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
+  function arm(url, ms) {
+    disarm();
+    timer = setTimeout(function () {
+      if (!document.hidden) showSheet(url);
+    }, ms);
+  }
+  // Якщо застосунок відкрився — вкладка ховається, фолбек не потрібен.
+  document.addEventListener('visibilitychange', function () { if (document.hidden) disarm(); });
+  window.addEventListener('pagehide', disarm);
+
+  function showSheet(url) {
+    if (sheet) { sheet.querySelector('#iabUrl').textContent = url; sheet.dataset.url = url; return; }
+
+    sheet = document.createElement('div');
+    sheet.className = 'iab';
+    sheet.dataset.url = url;
+    sheet.innerHTML =
+      '<div class="iab__box">' +
+        '<div class="iab__title">Відкрийте посилання у браузері</div>' +
+        '<p class="iab__text">Вбудований браузер не пускає далі. Натисніть <b>⋯</b> угорі ' +
+          'праворуч і оберіть <b>«Відкрити в браузері»</b> — або скопіюйте посилання ' +
+          'й вставте його в Safari чи Chrome.</p>' +
+        (isIOS ? '<a class="iab__btn iab__btn--primary" id="iabSafari">Відкрити в Safari</a>' : '') +
+        '<button class="iab__btn" id="iabCopy" type="button">Скопіювати посилання</button>' +
+        '<div class="iab__url" id="iabUrl"></div>' +
+        '<button class="iab__close" id="iabClose" type="button">Закрити</button>' +
+      '</div>';
+    document.body.appendChild(sheet);
+    sheet.querySelector('#iabUrl').textContent = url;
+
+    var safari = sheet.querySelector('#iabSafari');
+    if (safari) safari.href = 'x-safari-' + sheet.dataset.url;
+
+    sheet.querySelector('#iabClose').addEventListener('click', function () {
+      sheet.remove(); sheet = null;
+    });
+    sheet.querySelector('#iabCopy').addEventListener('click', function () {
+      var btn = this, old = btn.textContent, text = sheet.dataset.url;
+      var done = function () {
+        btn.textContent = 'Скопійовано ✓';
+        setTimeout(function () { btn.textContent = old; }, 1800);
+      };
+      function legacy() {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+        document.body.appendChild(ta);
+        ta.select(); ta.setSelectionRange(0, 99999);
+        try { document.execCommand('copy'); done(); }
+        catch (e) { btn.textContent = 'Виділіть посилання нижче'; }
+        document.body.removeChild(ta);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, legacy);
+      } else { legacy(); }
+    });
+  }
+
+  /* ---------- Перехоплення ---------- */
+
+  // Своя реалізація closest: у e.target може опинитися <svg>/<path>,
+  // де closest є не в кожному вебвʼю.
+  function anchorFrom(node) {
+    while (node && node !== document) {
+      if (node.nodeType === 1 && node.tagName && node.tagName.toLowerCase() === 'a') return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
 
   var _open = window.open;
   window.open = function (url) {
-    if (url) { location.href = url; return null; }
+    if (url) { go(String(url)); return null; }
     return _open.apply(window, arguments);
   };
 
-  document.addEventListener('click', function (e) {
-    var a = e.target && e.target.closest && e.target.closest('a[target="_blank"], a[target="blank"]');
-    if (a && a.href) {
-      e.preventDefault();
-      e.stopPropagation();
-      location.href = a.href;
+  function go(href) {
+    var t = tgTarget(href);
+    if (t) {
+      // Схема застосунку — не http-навігація, вебвʼю віддає її системі.
+      arm(t.https, 1400);
+      try { location.href = t.app; } catch (e) { disarm(); showSheet(t.https); }
+    } else {
+      arm(href, 1500);
+      try { location.href = href; } catch (e) { disarm(); showSheet(href); }
     }
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey) return;
+    var a = anchorFrom(e.target);
+    if (!a) return;
+    var href = a.href;
+    if (!href || !/^https?:/i.test(href)) return;   // mailto:/tel: лишаємо системі
+    e.preventDefault();
+    e.stopPropagation();
+    go(href);
   }, true);
 })();
 </script>
