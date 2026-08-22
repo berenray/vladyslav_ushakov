@@ -62,10 +62,23 @@
     animation:r .7s linear infinite;margin:6px auto 0;
   }
   @keyframes r{to{transform:rotate(360deg)}}
+  .iabbar {
+    background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:14px 16px; margin-bottom:20px; text-align:left;
+  }
+  .iabbar__title { font-weight:700; font-size:14px; margin-bottom:6px; }
+  .iabbar__text { font-size:13px; line-height:1.5; color:var(--muted); }
+  .iabbar__text b { color:var(--fg); font-weight:600; }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="iabbar" id="iabbar" hidden>
+    <div class="iabbar__title">Не працює кнопка?</div>
+    <div class="iabbar__text">Вбудований браузер блокує переходи. Натисніть
+      <b>⋯</b> угорі праворуч і оберіть <b>«Відкрити в браузері»</b> —
+      далі все працюватиме як звичайно.</div>
+  </div>
   <div class="logo" aria-hidden="true">
     <svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.6 20c-.25 1.1-.9 1.37-1.83.85l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.14 9.36-8.46c.4-.36-.09-.56-.63-.2L5.78 13.1.8 11.55c-1.08-.34-1.1-1.08.23-1.6L20.5 2.72c.9-.33 1.69.2 1.4 1.58z"/></svg>
   </div>
@@ -133,6 +146,8 @@
   // Усередині TikTok/Instagram авто-редірект ловить блокування —
   // тому одразу показуємо кнопку, перехід відбудеться від реального тапу.
   if (inApp) {
+    // Переходи зі сторінки тут заблоковані — попереджаємо одразу, а не після тапу.
+    $('iabbar').hidden = false;
     showFallback('Відкрити в Telegram');
   } else {
     // Звичайний браузер: пробуємо одразу, з фолбеком через 1.4 с
