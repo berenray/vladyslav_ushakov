@@ -429,5 +429,28 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
   }
 });
 </script>
+<!-- In-app browser fix: у вебв'ю TikTok/Instagram/Facebook переходи в новій вкладці
+     блокуються — відкриваємо їх у тому ж вікні. У звичайних браузерах нічого не змінює. -->
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  if (!/BytedanceWebview|musical_ly|trill|TikTok|Instagram|FBAN|FBAV|FB_IAB|Snapchat/i.test(ua)) return;
+
+  var _open = window.open;
+  window.open = function (url) {
+    if (url) { location.href = url; return null; }
+    return _open.apply(window, arguments);
+  };
+
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('a[target="_blank"], a[target="blank"]');
+    if (a && a.href) {
+      e.preventDefault();
+      e.stopPropagation();
+      location.href = a.href;
+    }
+  }, true);
+})();
+</script>
 </body>
 </html>
