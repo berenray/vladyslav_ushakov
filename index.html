@@ -300,6 +300,21 @@
     padding: 10px 12px; border-radius: 10px; background: var(--ai-paper);
     margin-bottom: 10px;
   }
+  .iab__box--pending {
+    display: flex; align-items: center; gap: 12px;
+    justify-content: center;
+    padding: 18px 20px;
+  }
+  .iab__spin {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid rgba(15,15,17,0.15);
+    border-top-color: var(--ai-gold-muted);
+    animation: iabspin .7s linear infinite;
+    flex: 0 0 auto;
+  }
+  @keyframes iabspin { to { transform: rotate(360deg); } }
+  .iab__pendtext { font-weight: 600; font-size: 15px; }
+
   .iab__close {
     display: block; width: 100%; padding: 10px;
     background: none; border: 0; cursor: pointer;
@@ -505,7 +520,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
      ========================================================================= -->
 <script>
 (function () {
-  var BUILD = 'v4';
+  var BUILD = 'v5';
   var IAB = window.__IAB, isAndroid = window.__ANDROID, isIOS = window.__IOS;
   var BOT = 'vladushakovai_bot';
 
@@ -548,30 +563,60 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
     return { https: https, app: app };
   }
 
-  /* ---------- Фолбек-екран ---------- */
+  /* ---------- Індикатор + фолбек-екран ---------- */
 
-  var sheet = null, timer = null;
+  // Дізнатися "застосунок не відкрився" можна лише по таймауту — події
+  // невдачі не існує. Тому тап одразу показує індикатор, і вже він
+  // перетворюється на фолбек, якщо за DELAY нічого не сталося.
+  // Без індикатора ця пауза читається як зависання.
+  var DELAY = 1200;
 
+  var box = null, timer = null, pending = false;
+
+  function overlay() {
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'iab';
+      document.body.appendChild(box);
+    }
+    return box;
+  }
+  function drop() {
+    if (box) { box.remove(); box = null; }
+    pending = false;
+  }
   function disarm() {
     if (timer) { clearTimeout(timer); timer = null; }
+    if (pending) drop();          // застосунок відкрився — прибираємо індикатор
   }
   function arm(url, ms) {
-    disarm();
+    if (timer) clearTimeout(timer);
+    showPending();
     timer = setTimeout(function () {
+      timer = null;
       if (!document.hidden) showSheet(url);
-    }, ms);
+    }, ms == null ? DELAY : ms);
   }
-  // Якщо застосунок відкрився — вкладка ховається, фолбек не потрібен.
+
+  // Застосунок відкрився → вкладка ховається → фолбек не потрібен.
   document.addEventListener('visibilitychange', function () { if (document.hidden) disarm(); });
   window.addEventListener('pagehide', disarm);
+  window.addEventListener('blur', disarm);
+
+  function showPending() {
+    pending = true;
+    overlay().innerHTML =
+      '<div class="iab__box iab__box--pending">' +
+        '<div class="iab__spin"></div>' +
+        '<div class="iab__pendtext">Відкриваємо…</div>' +
+      '</div>';
+  }
 
   function showSheet(url) {
-    if (sheet) { sheet.querySelector('#iabUrl').textContent = url; sheet.dataset.url = url; return; }
-
-    sheet = document.createElement('div');
-    sheet.className = 'iab';
-    sheet.dataset.url = url;
-    sheet.innerHTML =
+    pending = false;
+    var el = overlay();
+    el.dataset.url = url;
+    el.innerHTML =
       '<div class="iab__box">' +
         '<div class="iab__title">Відкрийте посилання у браузері</div>' +
         '<p class="iab__text">Вбудований браузер не пускає далі. Натисніть <b>⋯</b> угорі ' +
@@ -581,14 +626,10 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
         '<div class="iab__url" id="iabUrl"></div>' +
         '<button class="iab__close" id="iabClose" type="button">Закрити</button>' +
       '</div>';
-    document.body.appendChild(sheet);
-    sheet.querySelector('#iabUrl').textContent = url;
-
-    sheet.querySelector('#iabClose').addEventListener('click', function () {
-      sheet.remove(); sheet = null;
-    });
-    sheet.querySelector('#iabCopy').addEventListener('click', function () {
-      var btn = this, old = btn.textContent, text = sheet.dataset.url;
+    el.querySelector('#iabUrl').textContent = url;
+    el.querySelector('#iabClose').addEventListener('click', drop);
+    el.querySelector('#iabCopy').addEventListener('click', function () {
+      var btn = this, old = btn.textContent, text = el.dataset.url;
       var done = function () {
         btn.textContent = 'Скопійовано ✓';
         setTimeout(function () { btn.textContent = old; }, 1800);
@@ -651,7 +692,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
     if (e.defaultPrevented) return;
     var a = anchorFrom(e.target);
     if (!a || !a.href) return;
-    arm(a.dataset.https || a.href, 1600);
+    arm(a.dataset.https || a.href);
   }, false);
 
 })();
