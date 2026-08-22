@@ -300,6 +300,31 @@
     padding: 10px 12px; border-radius: 10px; background: var(--ai-paper);
     margin-bottom: 10px;
   }
+  /* ---------- Банер для вбудованих браузерів ---------- */
+  .iabbar {
+    width: 100%;
+    background: var(--ai-ink);
+    color: var(--ai-white);
+    border-radius: var(--radius-card);
+    padding: 16px 18px;
+    margin-bottom: 22px;
+  }
+  .iabbar__title {
+    font-family: var(--font-display); font-weight: 800;
+    font-size: 15px; line-height: 1.3; margin-bottom: 6px;
+    color: var(--ai-gold);
+  }
+  .iabbar__text { font-size: 13.5px; line-height: 1.5; opacity: .85; }
+  .iabbar__text b { color: var(--ai-gold); font-weight: 700; }
+  .iabbar__btn {
+    display: block; width: 100%; margin-top: 12px; padding: 11px;
+    border: 0; border-radius: 12px;
+    background: var(--ai-gold); color: var(--ai-text-dark);
+    font-family: var(--font-body); font-weight: 700; font-size: 14px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .iabbar__btn:active { opacity: .75; }
+
   .iab__box--pending {
     display: flex; align-items: center; gap: 12px;
     justify-content: center;
@@ -522,7 +547,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
      ========================================================================= -->
 <script>
 (function () {
-  var BUILD = 'v5';
+  var BUILD = 'v6';
   var IAB = window.__IAB, isAndroid = window.__ANDROID, isIOS = window.__IOS;
   var BOT = 'vladushakovai_bot';
 
@@ -532,6 +557,45 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
   if (tag) tag.textContent = '· ' + BUILD + (IAB ? ' · in-app' : '');
 
   if (!IAB) return;
+
+  /* ---------- Попередження вгорі ---------- */
+  // Вебвʼю TikTok блокує будь-яку навігацію зі сторінки — перевірено на
+  // переході на власний домен. Тобто тут не працює жодна кнопка, і чесніше
+  // сказати це одразу, ніж після невдалого тапу.
+  (function banner() {
+    var page = document.querySelector('.page');
+    if (!page) return;
+    var el = document.createElement('div');
+    el.className = 'iabbar';
+    el.innerHTML =
+      '<div class="iabbar__title">Відкрийте сторінку у браузері</div>' +
+      '<div class="iabbar__text">Вбудований браузер блокує переходи — кнопки нижче ' +
+        'тут не спрацюють. Натисніть <b>⋯</b> угорі праворуч і оберіть ' +
+        '<b>«Відкрити в браузері»</b>.</div>' +
+      '<button class="iabbar__btn" type="button">Скопіювати посилання на сторінку</button>';
+    page.insertBefore(el, page.firstChild);
+
+    el.querySelector('button').addEventListener('click', function () {
+      var btn = this, old = btn.textContent, text = location.href;
+      var done = function () {
+        btn.textContent = 'Скопійовано ✓ — вставте в Safari';
+        setTimeout(function () { btn.textContent = old; }, 2600);
+      };
+      function legacy() {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+        document.body.appendChild(ta);
+        ta.select(); ta.setSelectionRange(0, 99999);
+        try { document.execCommand('copy'); done(); }
+        catch (e) { btn.textContent = 'Не вдалося скопіювати'; }
+        document.body.removeChild(ta);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, legacy);
+      } else { legacy(); }
+    });
+  })();
 
   /* ---------- Telegram-хендофф ---------- */
 
