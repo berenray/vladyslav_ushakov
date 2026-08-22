@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Діагностика переходів</title>
+<style>
+  :root { --bg:#F2F2F4; --fg:#0F0F11; --muted:#6B6B70; --card:#fff;
+          --line:rgba(15,15,17,.1); --gold:#F8D74A; --ok:#137333; --bad:#B3261E; }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         padding:20px 16px 40px; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:520px; margin:0 auto; }
+  h1 { font-size:20px; line-height:1.25; margin-bottom:6px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:18px; }
+  .env { background:var(--card); border:1px solid var(--line); border-radius:12px;
+         padding:10px 12px; font-size:12px; color:var(--muted); word-break:break-all; margin-bottom:18px; }
+  .test { background:var(--card); border:1px solid var(--line); border-radius:16px;
+          padding:14px; margin-bottom:12px; }
+  .test__top { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .test__n { width:22px; height:22px; border-radius:50%; background:var(--bg);
+             display:grid; place-items:center; font-size:12px; font-weight:700; flex:0 0 auto; }
+  .test__name { font-weight:600; }
+  .test__what { font-size:13px; color:var(--muted); margin-bottom:10px; }
+  .test__btn { display:block; text-align:center; text-decoration:none;
+               background:var(--gold); color:var(--fg); font-weight:600;
+               padding:12px; border-radius:12px; -webkit-tap-highlight-color:transparent; }
+  .test__btn:active { opacity:.75; }
+  .test__res { margin-top:10px; font-size:13px; font-weight:600; }
+  .r-ok { color:var(--ok); }
+  .r-bad { color:var(--bad); }
+  .r-none { color:var(--muted); font-weight:400; }
+  .out { background:var(--card); border:1px solid var(--line); border-radius:12px;
+         padding:12px; font:12px/1.5 ui-monospace,Menlo,monospace; white-space:pre-wrap;
+         word-break:break-all; user-select:all; -webkit-user-select:all; margin-top:8px; }
+  .btn2 { display:block; width:100%; text-align:center; background:var(--card);
+          border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px;
+          font:inherit; font-weight:600; cursor:pointer; }
+  h2 { font-size:15px; margin:26px 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Діагностика переходів</h1>
+  <p class="sub">Тисніть кнопки по черзі. Після кожної — поверніться сюди
+     (стрілка «назад» або перемикач застосунків). Результат запишеться сам.</p>
+
+  <div class="env" id="env"></div>
+  <div id="tests"></div>
+
+  <h2>Підсумок</h2>
+  <div class="out" id="summary">—</div>
+  <button class="btn2" id="copy" type="button">Скопіювати підсумок</button>
+  <button class="btn2" id="reset" type="button">Скинути результати</button>
+</div>
+
+<script>
+(function () {
+  var BOT = 'vladushakovai_bot';
+  var PAYLOAD = '6a6385cf77a7e98991059bf6';
+  var HTTPS = 'https://t.me/' + BOT + '?start=' + PAYLOAD;
+
+  var TESTS = [
+    { id:'tg',     name:'Схема Telegram',        what:'tg://resolve?domain=…&start=…',
+      href:'tg://resolve?domain=' + BOT + '&start=' + PAYLOAD },
+    { id:'mailto', name:'mailto:',               what:'чи віддає вебвʼю системі ХОЧ ЯКУСЬ схему',
+      href:'mailto:test@example.com' },
+    { id:'tel',    name:'tel:',                  what:'друга відома схема — перевірка білого списку',
+      href:'tel:+380000000000' },
+    { id:'uni',    name:'Universal link на t.me', what:HTTPS,
+      href:HTTPS },
+    { id:'meta',   name:'meta refresh → tg://',  what:'схема через редірект, а не через тап',
+      href:'refresh.html' },
+    { id:'http',   name:'Звичайний перехід',     what:'чи працює навігація в принципі (ai-lab.com.ua)',
+      href:'https://www.ai-lab.com.ua/claude' }
+  ];
+
+  var KEY = 'diagResults';
+  function load() { try { return JSON.parse(sessionStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
+  function save(o) { try { sessionStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} }
+  function set(id, val) { var o = load(); o[id] = val; save(o); }
+
+  var ua = navigator.userAgent || '';
+  document.getElementById('env').textContent = ua;
+
+  // ---- рендер ----
+  var host = document.getElementById('tests');
+  TESTS.forEach(function (t, i) {
+    var el = document.createElement('div');
+    el.className = 'test';
+    el.innerHTML =
+      '<div class="test__top"><span class="test__n">' + (i + 1) + '</span>' +
+      '<span class="test__name"></span></div>' +
+      '<div class="test__what"></div>' +
+      '<a class="test__btn" data-id="' + t.id + '">Спробувати</a>' +
+      '<div class="test__res" data-res="' + t.id + '"></div>';
+    el.querySelector('.test__name').textContent = t.name;
+    el.querySelector('.test__what').textContent = t.what;
+    var a = el.querySelector('a');
+    a.href = t.href;                       // справжнє посилання — тап має бути нативним
+    host.appendChild(el);
+  });
+
+  // ---- фіксація результату ----
+  var pending = null, timer = null;
+
+  function finish(result) {
+    if (!pending) return;
+    set(pending, result);
+    pending = null;
+    if (timer) { clearTimeout(timer); timer = null; }
+    render();
+  }
+
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a[data-id]') : null;
+    if (!a) return;
+    pending = a.dataset.id;
+    set(pending, 'pending');
+    if (timer) clearTimeout(timer);
+    // нічого не сталося за 1.8 с → перехід не відбувся
+    timer = setTimeout(function () { finish('нічого не сталось'); }, 1800);
+  }, false);
+
+  // сторінка сховалась → застосунок або інша сторінка таки відкрились
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) finish('спрацювало');
+  });
+  window.addEventListener('pagehide', function () { finish('спрацювало'); });
+
+  // ---- вивід ----
+  function render() {
+    var res = load(), lines = [];
+    TESTS.forEach(function (t, i) {
+      var v = res[t.id];
+      var box = document.querySelector('[data-res="' + t.id + '"]');
+      if (!v || v === 'pending') {
+        box.className = 'test__res r-none';
+        box.textContent = v === 'pending' ? 'чекаємо…' : 'не пробували';
+      } else {
+        box.className = 'test__res ' + (v === 'спрацювало' ? 'r-ok' : 'r-bad');
+        box.textContent = (v === 'спрацювало' ? '✓ ' : '✗ ') + v;
+      }
+      lines.push((i + 1) + '. ' + t.name + ' — ' + (v && v !== 'pending' ? v : 'не пробували'));
+    });
+    document.getElementById('summary').textContent = lines.join('\n') + '\n\nUA: ' + ua;
+  }
+  render();
+
+  document.getElementById('reset').addEventListener('click', function () {
+    save({}); render();
+  });
+  document.getElementById('copy').addEventListener('click', function () {
+    var btn = this, text = document.getElementById('summary').textContent;
+    var done = function () { btn.textContent = 'Скопійовано ✓';
+                             setTimeout(function () { btn.textContent = 'Скопіювати підсумок'; }, 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () {});
+    }
+  });
+})();
+</script>
+</body>
+</html>

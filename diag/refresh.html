@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="refresh" content="0;url=tg://resolve?domain=vladushakovai_bot&start=6a6385cf77a7e98991059bf6">
+<title>meta refresh → tg://</title>
+<style>
+  body { font:15px/1.5 -apple-system,BlinkMacSystemFont,sans-serif; background:#F2F2F4;
+         color:#0F0F11; padding:40px 20px; text-align:center; }
+  a { display:inline-block; margin-top:20px; padding:12px 20px; background:#F8D74A;
+      color:#0F0F11; border-radius:12px; text-decoration:none; font-weight:600; }
+</style>
+</head>
+<body>
+  <p id="msg">Пробуємо відкрити Telegram через meta refresh…</p>
+  <a href="./">Повернутись до діагностики</a>
+<script>
+// Результат пишемо в те саме sessionStorage, що й на сторінці діагностики.
+(function () {
+  var KEY = 'diagResults';
+  function set(v) {
+    try {
+      var o = JSON.parse(sessionStorage.getItem(KEY) || '{}');
+      o.meta = v;
+      sessionStorage.setItem(KEY, JSON.stringify(o));
+    } catch (e) {}
+  }
+  var done = false;
+  function mark(v) { if (done) return; done = true; set(v); }
+
+  document.addEventListener('visibilitychange', function () { if (document.hidden) mark('спрацювало'); });
+  window.addEventListener('pagehide', function () { mark('спрацювало'); });
+  setTimeout(function () {
+    if (!document.hidden) {
+      mark('нічого не сталось');
+      document.getElementById('msg').textContent = 'Не спрацювало — Telegram не відкрився.';
+    }
+  }, 2000);
+})();
+</script>
+</body>
+</html>
