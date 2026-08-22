@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Відкрити в Telegram</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#0b0b0c; --muted:#6b6b73;
+    --card:#f5f5f7; --line:#e4e4e9;
+    --accent:#2aabee; --accent-fg:#ffffff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b0b0c; --fg:#f5f5f7; --muted:#9a9aa4;
+           --card:#17171a; --line:#2a2a30; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--fg);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{width:100%; max-width:420px; text-align:center}
+  .logo{
+    width:64px;height:64px;border-radius:50%;margin:0 auto 20px;
+    background:var(--accent); display:grid; place-items:center;
+  }
+  .logo svg{width:34px;height:34px;fill:#fff;transform:translateX(-1px)}
+  h1{font-size:22px;line-height:1.25;margin:0 0 8px;letter-spacing:-.01em}
+  p{margin:0 0 22px;color:var(--muted);font-size:15px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;padding:15px 18px;margin-bottom:10px;
+    border-radius:14px;border:1px solid transparent;
+    font-size:16px;font-weight:600;text-decoration:none;cursor:pointer;
+    font-family:inherit;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn-primary{background:var(--accent);color:var(--accent-fg)}
+  .btn-primary:active{opacity:.85}
+  .btn-ghost{background:var(--card);color:var(--fg);border-color:var(--line)}
+  .btn-ghost:active{opacity:.7}
+  #fallback{display:none;margin-top:6px}
+  #fallback.show{display:block}
+  .hint{
+    margin-top:18px;padding:14px 16px;border-radius:12px;
+    background:var(--card);border:1px solid var(--line);
+    font-size:13.5px;line-height:1.55;color:var(--muted);text-align:left;
+  }
+  .hint b{color:var(--fg);font-weight:600}
+  .link{
+    margin-top:14px;font-size:12px;color:var(--muted);
+    word-break:break-all;user-select:all;-webkit-user-select:all;
+  }
+  .spin{
+    width:20px;height:20px;border-radius:50%;
+    border:2px solid var(--line);border-top-color:var(--accent);
+    animation:r .7s linear infinite;margin:6px auto 0;
+  }
+  @keyframes r{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.6 20c-.25 1.1-.9 1.37-1.83.85l-5.05-3.72-2.44 2.35c-.27.27-.5.5-1.02.5l.36-5.14 9.36-8.46c.4-.36-.09-.56-.63-.2L5.78 13.1.8 11.55c-1.08-.34-1.1-1.08.23-1.6L20.5 2.72c.9-.33 1.69.2 1.4 1.58z"/></svg>
+  </div>
+
+  <h1 id="title">Відкриваємо Telegram…</h1>
+  <p id="sub">Якщо нічого не сталося — натисніть кнопку нижче.</p>
+  <div class="spin" id="spin"></div>
+
+  <div id="fallback">
+    <a class="btn btn-primary" id="openBtn" href="#">Відкрити Telegram</a>
+    <button class="btn btn-ghost" id="copyBtn" type="button">Скопіювати посилання</button>
+
+    <div class="hint" id="hint">
+      Якщо кнопка не спрацювала — відкрийте цю сторінку у звичайному браузері:
+      натисніть <b>⋯</b> у верхньому правому куті та оберіть
+      <b>«Відкрити в браузері»</b>. Або скопіюйте посилання й вставте його в Safari / Chrome.
+    </div>
+
+    <div class="link" id="rawLink"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- НАЛАШТУВАННЯ ----------
+  var BOT = 'vladushakovai_bot';       // username бота без @
+  var DEFAULT_PAYLOAD = '';            // необов'язковий payload за замовчуванням
+  // ----------------------------------
+
+  var qs = new URLSearchParams(location.search);
+  // приймаємо ?r= , ?start= або ?s=
+  var payload = (qs.get('r') || qs.get('start') || qs.get('s') || DEFAULT_PAYLOAD).trim();
+  var bot     = (qs.get('bot') || BOT).replace(/^@/, '').trim();
+
+  var httpsUrl = 'https://t.me/' + encodeURIComponent(bot) +
+                 (payload ? '?start=' + encodeURIComponent(payload) : '');
+  var tgUrl    = 'tg://resolve?domain=' + encodeURIComponent(bot) +
+                 (payload ? '&start=' + encodeURIComponent(payload) : '');
+  var intentUrl = 'intent://resolve?domain=' + encodeURIComponent(bot) +
+                 (payload ? '&start=' + encodeURIComponent(payload) : '') +
+                 '#Intent;scheme=tg;S.browser_fallback_url=' +
+                 encodeURIComponent(httpsUrl) + ';end';
+
+  var ua = navigator.userAgent || '';
+  var isAndroid = /Android/i.test(ua);
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // вбудовані браузери, які блокують перехід у застосунок
+  var inApp = /BytedanceWebview|musical_ly|trill|TikTok|Instagram|FBAN|FBAV|FB_IAB|Snapchat|Line\/|Twitter/i.test(ua);
+
+  var target = isAndroid ? intentUrl : (isIOS ? tgUrl : httpsUrl);
+
+  var $ = function (id) { return document.getElementById(id); };
+  $('openBtn').href = target;
+  $('rawLink').textContent = httpsUrl;
+
+  function showFallback(titleText) {
+    $('spin').style.display = 'none';
+    $('title').textContent = titleText || 'Відкрити в Telegram';
+    $('sub').textContent = 'Натисніть кнопку, щоб продовжити.';
+    $('fallback').classList.add('show');
+  }
+
+  // Усередині TikTok/Instagram авто-редірект ловить блокування —
+  // тому одразу показуємо кнопку, перехід відбудеться від реального тапу.
+  if (inApp) {
+    showFallback('Відкрити в Telegram');
+  } else {
+    // Звичайний браузер: пробуємо одразу, з фолбеком через 1.4 с
+    var t = setTimeout(function () { showFallback(); }, 1400);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) clearTimeout(t);   // застосунок відкрився
+    });
+    try { location.href = target; } catch (e) { clearTimeout(t); showFallback(); }
+  }
+
+  // Кнопка «Відкрити» — додатковий фолбек на https, якщо схема не спрацювала
+  $('openBtn').addEventListener('click', function () {
+    if (isIOS) {
+      setTimeout(function () {
+        if (!document.hidden) { location.href = httpsUrl; }
+      }, 1200);
+    }
+  });
+
+  // Копіювання повного посилання (payload зберігається)
+  $('copyBtn').addEventListener('click', function () {
+    var btn = this, old = btn.textContent;
+    var done = function () {
+      btn.textContent = 'Скопійовано ✓';
+      setTimeout(function () { btn.textContent = old; }, 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(httpsUrl).then(done, legacy);
+    } else { legacy(); }
+
+    function legacy() {
+      var ta = document.createElement('textarea');
+      ta.value = httpsUrl;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, 99999);
+      try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Виділіть посилання нижче'; }
+      document.body.removeChild(ta);
+    }
+  });
+})();
+</script>
+</body>
+</html>
