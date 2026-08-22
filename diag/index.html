@@ -72,8 +72,10 @@
       href:HTTPS },
     { id:'meta',   name:'meta refresh → tg://',  what:'схема через редірект, а не через тап',
       href:'refresh.html' },
-    { id:'http',   name:'Звичайний перехід',     what:'чи працює навігація в принципі (ai-lab.com.ua)',
-      href:'https://www.ai-lab.com.ua/claude' }
+    { id:'http',   name:'Перехід на чужий домен', what:'ai-lab.com.ua',
+      href:'https://www.ai-lab.com.ua/claude' },
+    { id:'same',   name:'Перехід на свій домен',  what:'та сама сторінка — чи працює навігація взагалі',
+      href:'./?again=1' }
   ];
 
   var KEY = 'diagResults';
