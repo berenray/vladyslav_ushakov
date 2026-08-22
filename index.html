@@ -491,10 +491,13 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
      перевірено, що заглушка "відкрий у браузері" зʼявляється навіть на
      перехід на свій же домен. Тому проміжного переходу тут немає взагалі:
 
-     1) Telegram-кнопки віддаємо операційній системі прямо з цієї сторінки
-        (tg:// на iOS, intent:// на Android) — навігації, яку можна заблокувати,
-        не відбувається;
-     2) решту посилань пробуємо відкрити в тому ж вікні;
+     1) Telegram-кнопкам підставляємо схему застосунку прямо в href
+        (tg:// на iOS, intent:// на Android). Саме в href, а не через JS:
+        вебвʼю віддає системі кастомну схему лише коли перехід ініційовано
+        справжнім тапом по посиланню (.linkActivated), а скриптове
+        location.href (.other) глушить;
+     2) решті посилань просто знімаємо target="_blank" — тап лишається
+        нативним переходом у тому ж вікні;
      3) якщо за 1.4 с застосунок не відкрився — показуємо власний екран
         із копіюванням посилання та інструкцією "⋯ → Відкрити в браузері".
 
@@ -502,7 +505,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
      ========================================================================= -->
 <script>
 (function () {
-  var BUILD = 'v3';
+  var BUILD = 'v4';
   var IAB = window.__IAB, isAndroid = window.__ANDROID, isIOS = window.__IOS;
   var BOT = 'vladushakovai_bot';
 
@@ -574,16 +577,12 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
         '<p class="iab__text">Вбудований браузер не пускає далі. Натисніть <b>⋯</b> угорі ' +
           'праворуч і оберіть <b>«Відкрити в браузері»</b> — або скопіюйте посилання ' +
           'й вставте його в Safari чи Chrome.</p>' +
-        (isIOS ? '<a class="iab__btn iab__btn--primary" id="iabSafari">Відкрити в Safari</a>' : '') +
-        '<button class="iab__btn" id="iabCopy" type="button">Скопіювати посилання</button>' +
+        '<button class="iab__btn iab__btn--primary" id="iabCopy" type="button">Скопіювати посилання</button>' +
         '<div class="iab__url" id="iabUrl"></div>' +
         '<button class="iab__close" id="iabClose" type="button">Закрити</button>' +
       '</div>';
     document.body.appendChild(sheet);
     sheet.querySelector('#iabUrl').textContent = url;
-
-    var safari = sheet.querySelector('#iabSafari');
-    if (safari) safari.href = 'x-safari-' + sheet.dataset.url;
 
     sheet.querySelector('#iabClose').addEventListener('click', function () {
       sheet.remove(); sheet = null;
@@ -611,7 +610,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
     });
   }
 
-  /* ---------- Перехоплення ---------- */
+  /* ---------- Підміна href і фолбек ---------- */
 
   // Своя реалізація closest: у e.target може опинитися <svg>/<path>,
   // де closest є не в кожному вебвʼю.
@@ -623,34 +622,38 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
     return null;
   }
 
+  // Модуль виконується після рендера кнопок, тож просто переписуємо готові
+  // посилання. https-адресу лишаємо поруч — її показуємо у фолбеку.
+  function rewrite() {
+    var list = document.querySelectorAll('a[href]');
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (a.dataset.https) continue;
+      var t = tgTarget(a.href);
+      if (t) { a.dataset.https = t.https; a.href = t.app; }
+    }
+  }
+  rewrite();
+
   var _open = window.open;
   window.open = function (url) {
-    if (url) { go(String(url)); return null; }
+    if (url) {
+      var t = tgTarget(String(url));
+      location.href = t ? t.app : String(url);
+      return null;
+    }
     return _open.apply(window, arguments);
   };
 
-  function go(href) {
-    var t = tgTarget(href);
-    if (t) {
-      // Схема застосунку — не http-навігація, вебвʼю віддає її системі.
-      arm(t.https, 1400);
-      try { location.href = t.app; } catch (e) { disarm(); showSheet(t.https); }
-    } else {
-      arm(href, 1500);
-      try { location.href = href; } catch (e) { disarm(); showSheet(href); }
-    }
-  }
-
+  // Навігацію НЕ перехоплюємо — тап має лишитися нативним.
+  // Тут лише зводимо таймер: якщо застосунок не відкрився, покажемо фолбек.
   document.addEventListener('click', function (e) {
-    if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey) return;
+    if (e.defaultPrevented) return;
     var a = anchorFrom(e.target);
-    if (!a) return;
-    var href = a.href;
-    if (!href || !/^https?:/i.test(href)) return;   // mailto:/tel: лишаємо системі
-    e.preventDefault();
-    e.stopPropagation();
-    go(href);
-  }, true);
+    if (!a || !a.href) return;
+    arm(a.dataset.https || a.href, 1600);
+  }, false);
+
 })();
 </script>
 </body>

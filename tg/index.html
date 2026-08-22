@@ -76,7 +76,6 @@
 
   <div id="fallback">
     <a class="btn btn-primary" id="openBtn" href="#">Відкрити Telegram</a>
-    <a class="btn btn-ghost" id="safariBtn" href="#" hidden>Відкрити в Safari</a>
     <button class="btn btn-ghost" id="copyBtn" type="button">Скопіювати посилання</button>
 
     <div class="hint" id="hint">
@@ -123,13 +122,6 @@
   $('openBtn').href = target;
   $('rawLink').textContent = httpsUrl;
 
-  // iOS у вебвʼю глушить і universal links, і частину tg:// —
-  // x-safari- віддає посилання справжньому Safari.
-  if (isIOS) {
-    var sb = $('safariBtn');
-    sb.href = 'x-safari-' + httpsUrl;
-    sb.hidden = false;
-  }
 
   function showFallback(titleText) {
     $('spin').style.display = 'none';
