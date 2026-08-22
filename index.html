@@ -301,29 +301,63 @@
     margin-bottom: 10px;
   }
   /* ---------- Банер для вбудованих браузерів ---------- */
+
+  /* Стрілка вгору-праворуч — туди, де у TikTok реально стоїть «•••».
+     Головна дія має бути очевидною без читання тексту. */
+  .iabpoint {
+    position: fixed; top: 2px; right: 14px; z-index: 90;
+    pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    animation: iabpoint 1.3s ease-in-out infinite;
+  }
+  .iabpoint svg { width: 30px; height: 30px; color: var(--ai-ink); }
+  .iabpoint span {
+    font-size: 10px; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase;
+    background: var(--ai-ink); color: var(--ai-gold);
+    padding: 2px 7px; border-radius: var(--radius-pill);
+  }
+  @keyframes iabpoint {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-7px); }
+  }
+
   .iabbar {
     width: 100%;
     background: var(--ai-ink);
     color: var(--ai-white);
     border-radius: var(--radius-card);
-    padding: 16px 18px;
+    padding: 18px;
     margin-bottom: 22px;
+  }
+  .iabbar__step {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px;
+  }
+  .iabbar__dots {
+    flex: 0 0 auto;
+    background: var(--ai-gold); color: var(--ai-text-dark);
+    font-weight: 900; font-size: 20px; line-height: 1;
+    letter-spacing: .08em;
+    padding: 10px 12px; border-radius: 12px;
   }
   .iabbar__title {
     font-family: var(--font-display); font-weight: 800;
-    font-size: 15px; line-height: 1.3; margin-bottom: 6px;
-    color: var(--ai-gold);
+    font-size: 15px; line-height: 1.3; color: var(--ai-white);
   }
-  .iabbar__text { font-size: 13.5px; line-height: 1.5; opacity: .85; }
+  .iabbar__title em { font-style: normal; color: var(--ai-gold); }
+  .iabbar__text { font-size: 13.5px; line-height: 1.5; opacity: .8; }
   .iabbar__text b { color: var(--ai-gold); font-weight: 700; }
-  .iabbar__btn {
-    display: block; width: 100%; margin-top: 12px; padding: 11px;
-    border: 0; border-radius: 12px;
-    background: var(--ai-gold); color: var(--ai-text-dark);
-    font-family: var(--font-body); font-weight: 700; font-size: 14px;
-    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  .iabbar__alt {
+    display: block; width: 100%; margin-top: 14px;
+    background: none; border: 0; padding: 0;
+    font-family: var(--font-body); font-size: 12.5px;
+    color: rgba(255,255,255,0.45);
+    text-decoration: underline; text-underline-offset: 3px;
+    cursor: pointer; text-align: left;
+    -webkit-tap-highlight-color: transparent;
   }
-  .iabbar__btn:active { opacity: .75; }
+  .iabbar__alt:active { color: rgba(255,255,255,0.8); }
 
   .iab__box--pending {
     display: flex; align-items: center; gap: 12px;
@@ -545,7 +579,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
      ========================================================================= -->
 <script>
 (function () {
-  var BUILD = 'v7';
+  var BUILD = 'v8';
   var IAB = window.__IAB, isAndroid = window.__ANDROID, isIOS = window.__IOS;
   var BOT = 'vladushakovai_bot';
 
@@ -566,17 +600,29 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
     var el = document.createElement('div');
     el.className = 'iabbar';
     el.innerHTML =
-      '<div class="iabbar__title">Не працює кнопка?</div>' +
-      '<div class="iabbar__text">Вбудований браузер блокує переходи. Натисніть ' +
-        '<b>⋯</b> угорі праворуч і оберіть <b>«Відкрити в браузері»</b> — ' +
-        'далі все працюватиме як звичайно.</div>' +
-      '<button class="iabbar__btn" type="button">Скопіювати посилання на сторінку</button>';
+      '<div class="iabbar__step">' +
+        '<div class="iabbar__dots">•••</div>' +
+        '<div class="iabbar__title">Натисніть <em>•••</em> угорі праворуч ' +
+          'і оберіть <em>«Відкрити в браузері»</em></div>' +
+      '</div>' +
+      '<div class="iabbar__text">Інакше кнопки нижче <b>не працюватимуть</b>.</div>' +
+      '<button class="iabbar__alt" type="button">Не бачу «•••» — скопіювати посилання</button>';
     page.insertBefore(el, page.firstChild);
 
-    el.querySelector('button').addEventListener('click', function () {
+    // стрілка до кутка, де стоять «•••»
+    var pt = document.createElement('div');
+    pt.className = 'iabpoint';
+    pt.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" ' +
+        'stroke-linecap="round" stroke-linejoin="round">' +
+        '<line x1="12" y1="20" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>' +
+      '<span>сюди</span>';
+    document.body.appendChild(pt);
+
+    el.querySelector('.iabbar__alt').addEventListener('click', function () {
       var btn = this, old = btn.textContent, text = location.href;
       var done = function () {
-        btn.textContent = 'Скопійовано ✓ — вставте в Safari';
+        btn.textContent = 'Скопійовано ✓ — вставте в Safari чи Chrome';
         setTimeout(function () { btn.textContent = old; }, 2600);
       };
       function legacy() {
