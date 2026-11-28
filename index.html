@@ -444,6 +444,7 @@ const CONFIG = {
   //   type: "primary" = жовта кнопка;  badge — необов'язковий бейдж;
   //   thumb: "шлях/до/картинки" = картинка ліворуч;  icon: запасна іконка, якщо картинки немає.
   links: [
+    { label: "Реєстрація на воркшоп", url: "https://t.me/+b1ZNW1AHe0w3MDRi", badge: "нове", icon: "mic" },
     { label: "Реальний план заробітку на AI в 2026", url: "https://links.vlad-ushakov.com/tg?r=6a6385cf77a7e98991059bf6", type: "primary", thumb: "img/plan.jpg", icon: "star" },
     { label: "Гайд зі створення AI-агента з нуля", url: "https://www.ai-lab.com.ua/guides/ai-agent/", icon: "code" },
     { label: "Відео: як створити AI-агента", url: "https://youtu.be/7UaVBN1sA1o", icon: "youtube" },
@@ -584,7 +585,7 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
      ========================================================================= -->
 <script>
 (function () {
-  var BUILD = 'v8';
+  var BUILD = 'v9';
   var IAB = window.__IAB, isAndroid = window.__ANDROID, isIOS = window.__IOS;
   var BOT = 'vladushakovai_bot';
 
@@ -652,6 +653,23 @@ document.getElementById('shareBtn').addEventListener('click', async () => {
   function tgTarget(href) {
     var u;
     try { u = new URL(href, location.href); } catch (e) { return null; }
+
+    // Запрошення в групу чи канал: t.me/+HASH або t.me/joinchat/HASH.
+    // Схема для них інша — tg://join?invite=, а не resolve?domain=.
+    if (/(^|\.)t\.me$/i.test(u.hostname)) {
+      var inv = u.pathname.match(/^\/(?:\+|joinchat\/)([^/]+)\/?$/);
+      if (inv) {
+        var code = decodeURIComponent(inv[1]);
+        var inviteHttps = 'https://t.me/+' + encodeURIComponent(code);
+        return {
+          https: inviteHttps,
+          app: isAndroid
+            ? 'intent://join?invite=' + encodeURIComponent(code) +
+              '#Intent;scheme=tg;S.browser_fallback_url=' + encodeURIComponent(inviteHttps) + ';end'
+            : 'tg://join?invite=' + encodeURIComponent(code)
+        };
+      }
+    }
 
     var bot, payload;
     if (/(^|\.)t\.me$/i.test(u.hostname)) {
